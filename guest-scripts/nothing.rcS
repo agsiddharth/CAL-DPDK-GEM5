@@ -1,0 +1,33 @@
+#!/bin/bash
+# Authors: Mohammad Alian <malian2@illinois.edu>
+# boot gem5 and take a checkpoint
+#
+# The idea of this script is the same as
+# "configs/boot/hack_back_ckpt.rcS" by Joel Hestness
+# Please look into that for more info
+#
+source /root/.bashrc
+
+# Retrieve dist-gem5 rank and size parameters using the 'm5' utility
+MY_RANK=$(m5 initparam dist-rank)
+MY_SIZE=$(m5 initparam dist-size)
+
+((MY_ADDR = MY_RANK + 2))
+
+
+#ip link set eth0 address 00:90:00:00:${MY_ADDR}:0${MY_ADDR}
+#ip addr add 10.0.0.${MY_ADDR}/24 dev eth0
+
+#/sbin/ifconfig -a
+
+# take a checkpoint
+if [ "$MY_RANK" == "0" ]
+then
+    ping 10.0.0.3 -c 5
+    /sbin/m5 exit
+else
+    sleep 20
+fi
+
+
+/sbin/m5 exit 1
