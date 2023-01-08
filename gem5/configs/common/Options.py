@@ -109,6 +109,7 @@ def addNoISAOptions(parser):
     parser.add_argument("--num-nics", type=int, default=1)
     parser.add_argument("--num-loadgens", type=int, default=0)
     parser.add_argument("--loadgen-start", type=int, default=1)
+    parser.add_argument("--loadgen-mode", type=str, default="Static")
     parser.add_argument("--loadgen-stop", type=int, default=m5.MaxTick)
     parser.add_argument("-n", "--num-cpus", type=int, default=1)
     parser.add_argument("--sys-voltage", action="store", type=str,

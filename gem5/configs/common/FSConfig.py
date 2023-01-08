@@ -176,7 +176,7 @@ def makeSparcSystem(mem_mode, mdesc=None, cmdline=None):
 def makeArmSystem(mem_mode, machine_type, num_cpus=1, mdesc=None,
                   dtb_filename=None, bare_metal=False, cmdline=None,
                   external_memory="", ruby=False, security=False,
-                  vio_9p=None, bootloader=None, packet_rate=1, packet_size=64, num_nics=1, num_loadgens=0, loadgen_start=1, loadgen_stop=m5.MaxTick):
+                  vio_9p=None, bootloader=None, packet_rate=1, packet_size=64, num_nics=1, num_loadgens=0, loadgen_start=1, loadgen_stop=m5.MaxTick, loadgen_mode="Static"):
     assert machine_type
 
     pci_devices = []
@@ -192,7 +192,7 @@ def makeArmSystem(mem_mode, machine_type, num_cpus=1, mdesc=None,
         nics.append(IGbE_e1000(adq_idx=i))
 
     for i in range(num_loadgens):
-        loadgens.append(LoadGenerator(packet_rate = packet_rate, packet_size = packet_size, start_tick=loadgen_start, stop_tick=loadgen_stop))
+        loadgens.append(LoadGenerator(packet_rate = packet_rate, packet_size = packet_size, start_tick=loadgen_start, stop_tick=loadgen_stop, mode=loadgen_mode))
         links.append(EtherLink(speed = '1000Gbps'))
         links[i].int0 = nics[i].interface
         links[i].int1 = loadgens[i].interface

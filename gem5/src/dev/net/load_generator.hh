@@ -13,25 +13,32 @@ namespace gem5
 
     class LoadGenerator : public SimObject
     {
+
+        enum class Mode { Static, Increment, Burst};
+
         private:
 
             static constexpr unsigned MACHeaderSize = 14;
+            Mode loadgenMode;
             LoadGenInt *interface;
             void sendPacket();
             void checkLoss();
             Tick frequency();
-
+            void endTest();
+            const uint8_t loadgenId;
             unsigned packetSize;
             unsigned packetRate;
             const Tick startTick;
             const Tick stopTick;
             const unsigned checkLossInterval;
             Tick incrementInterval;
+            Tick burstWidth;
+            Tick burstGap;
+            Tick burstStartTick;
             uint64_t lastRxCount;
             uint64_t lastTxCount;
             EventFunctionWrapper sendPacketEvent;
             EventFunctionWrapper checkLossEvent;
-        
             struct LoadGeneratorStats : public statistics::Group
             {
                 LoadGeneratorStats(statistics::Group *parent);
@@ -43,6 +50,7 @@ namespace gem5
         public:
             LoadGenerator(const LoadGeneratorParams &p);
             Port & getPort(const std::string &if_name, PortID idx);
+            void buildPacket(EthPacketPtr ethpacket);
             void startup();
             bool processRxPkt(EthPacketPtr pkt);
     };

@@ -105,7 +105,8 @@ def build_test_system(np):
             num_nics=args.num_nics,
             num_loadgens=args.num_loadgens,
             loadgen_start=args.loadgen_start,
-            loadgen_stop=args.loadgen_stop
+            loadgen_stop=args.loadgen_stop,
+            loadgen_mode=args.loadgen_mode,
         )
         if args.enable_context_switch_stats_dump:
             test_sys.enable_context_switch_stats_dump = True
