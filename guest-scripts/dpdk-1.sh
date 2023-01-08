@@ -1,4 +1,3 @@
-
 ip link set dev eth0 down
 modprobe uio_pci_generic
 dpdk-devbind.py -b uio_pci_generic 00:02.0

@@ -1,7 +1,4 @@
 #1 num loadgens
-#2 clock speed
-#3 memory channel
-#4 CPU Type
 #5 l1size
 #6 packet rate
 #7 packet size
