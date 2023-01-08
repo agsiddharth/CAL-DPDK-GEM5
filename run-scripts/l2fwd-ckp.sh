@@ -95,7 +95,7 @@ else
   ((RATE = PACKET_RATE * PACKET_SIZE * 8 / 1024 / 1024 / 1024))
   echo "Running NICs=$num_nics at $RATE GBPS" >&2
   CPUTYPE="DerivO3CPU"
-  CONFIGARGS="$CACHE_CONFIG -r 2 --loadgen-start=6050000000000 --loadgen-stop=11500000000000 --packet-rate=$RATE --packet-size=$PACKET_SIZE --loadgen-mode=static"
+  CONFIGARGS="$CACHE_CONFIG -r 2 --loadgen-start=6050000000000 -m=6500000000000 --packet-rate=$RATE --packet-size=$PACKET_SIZE --loadgen-mode=static"
   run_simulation
   exit
 fi
