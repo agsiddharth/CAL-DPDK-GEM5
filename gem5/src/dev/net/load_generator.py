@@ -14,7 +14,6 @@ class LoadGenerator(SimObject):
     packet_size = Param.Int(64,"Packet size in bytes")
     packet_rate = Param.Int(100,"Number of packets per second to send")
     loadgen_id = Param.Int(0, "For match NIC")
-    increment_interval = Param.Int(10000, "value to increase packet rate by")
     burst_width = Param.Tick(1, "Width of a packet burst in picoseconds")
     burst_gap = Param.Tick(1, "Time of gap between bursts in picoseconds")
     mode = Param.String("Increment", "LoadgenMode")

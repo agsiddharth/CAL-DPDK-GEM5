@@ -2249,7 +2249,12 @@ IGbE::rxStateMachine()
         if (descLeft * ratio <= regs.rdlen()) {
             DPRINTF(Ethernet, "RXS: Interrupting (RXDMT) "
                     "because of descriptors left\n");
-            postInterrupt(IT_RXDMT);
+            rxDescCache.writeback(0);
+         }
+
+        if (descLeft < 32)
+        {
+            rxDescCache.writeback(0);
         }
 
         if (rxFifo.empty())
