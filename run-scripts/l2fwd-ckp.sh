@@ -3,10 +3,13 @@
 CACHE_CONFIG="--caches --l2cache --l1i_size=32kB --l1d_size=32kB --l1d_assoc=8 --l2_size=1MB --l2_assoc=16"
 
 function usage {
-  echo "Usage: $0 --num-nics <num_nics> [--take-checkpoint] [--script <script>]"
+  echo "Usage: $0 --num-nics <num_nics> [--take-checkpoint] [--script <script>] [--packet-rate <packet_rate>] [--packet-size <packet_size>]"
   echo "  --num-nics <num_nics> : number of NICs to use"
   echo "  --take-checkpoint : take checkpoint after running"
   echo "  --script <script> : guest script to run"
+  echo "  --packet-rate <packet_rate> : packet rate in PPS"
+  echo "  --packet-size <packet_size> : packet size in bytes"
+  echo "  -h --help : print this message"
   exit 1
 }
 
@@ -17,11 +20,11 @@ function setup_dirs {
 
 function run_simulation {
   "$GEM5_DIR"/build/ARM/gem5.fast --outdir="$RUNDIR" \
-    "$GEM5_DIR"/configs/example/fs.py --cpu-type=$CPUTYPE \
-    --kernel="$RESOURCES/vmlinux" --disk="$RESOURCES/rootfs.ext2" --bootloader="$RESOURCES/boot.arm64" --root=/dev/sda \
-    --num-cpus=2 --mem-size=8192MB --script="$GUEST_SCRIPT" \
-    --num-nics="$num_nics" --num-loadgens="$num_nics" \
-    --checkpoint-dir="$CKPT_DIR" $CONFIGARGS
+  "$GEM5_DIR"/configs/example/fs.py --cpu-type=$CPUTYPE \
+  --kernel="$RESOURCES/vmlinux" --disk="$RESOURCES/rootfs.ext2" --bootloader="$RESOURCES/boot.arm64" --root=/dev/sda \
+  --num-cpus=2 --mem-size=8192MB --script="$GUEST_SCRIPT_DIR/$GUEST_SCRIPT" \
+  --num-nics="$num_nics" --num-loadgens="$num_nics" \
+  --checkpoint-dir="$CKPT_DIR" $CONFIGARGS
 }
 
 if [[ -z "${GIT_ROOT}" ]]; then
@@ -34,7 +37,7 @@ RESOURCES=${GIT_ROOT}/resources
 GUEST_SCRIPT_DIR=${GIT_ROOT}/guest-scripts
 
 # parse command line arguments
-TEMP=$(getopt -o '' --long take-checkpoint,num-nics:,script:,packet-rate:,packet-size: -n 'dpdk-loadgen' -- "$@")
+TEMP=$(getopt -o 'h' --long take-checkpoint,num-nics:,script:,packet-rate:,packet-size:,help -n 'dpdk-loadgen' -- "$@")
 
 # check for parsing errors
 if [ $? != 0 ]; then
@@ -55,7 +58,7 @@ while true; do
     shift 1
     ;;
   --script)
-    GUEST_SCRIPT="$GUEST_SCRIPT_DIR/$2"
+    GUEST_SCRIPT="$2"
     shift 2
     ;;
   --packet-size)
@@ -66,6 +69,9 @@ while true; do
     PACKET_RATE="$2"
     shift 2
     ;;
+  -h | --help)
+    usage
+    ;;
   --)
     shift
     break
@@ -74,12 +80,12 @@ while true; do
   esac
 done
 
+CKPT_DIR=${GIT_ROOT}/ckpts/$num_nics"NIC"-$GUEST_SCRIPT
+
 if [[ -z "$num_nics" ]]; then
   echo "Error: missing argument --num-nics" >&2
   usage
 fi
-
-CKPT_DIR=${GIT_ROOT}/ckpts/$num_nics"NIC"
 
 if [[ -n "$checkpoint" ]]; then
   RUNDIR=${GIT_ROOT}/rundir/$num_nics"NIC-ckp"
@@ -90,12 +96,21 @@ if [[ -n "$checkpoint" ]]; then
   run_simulation
   exit 0
 else
+  if [[ -z "$PACKET_SIZE" ]]; then
+    echo "Error: missing argument --packet_size" >&2
+    usage
+  fi
+
+  if [[ -z "$PACKET_RATE" ]]; then
+    echo "Error: missing argument --packet_rate" >&2
+    usage
+  fi
   RUNDIR=${GIT_ROOT}/rundir/$num_nics"NIC"
   setup_dirs
   ((RATE = PACKET_RATE * PACKET_SIZE * 8 / 1024 / 1024 / 1024))
   echo "Running NICs=$num_nics at $RATE GBPS" >&2
   CPUTYPE="DerivO3CPU"
-  CONFIGARGS="$CACHE_CONFIG -r 2 --loadgen-start=4050000000000 -m=4500000000000 --packet-rate=$RATE --packet-size=$PACKET_SIZE --loadgen-mode=static"
+  CONFIGARGS="$CACHE_CONFIG -r 2 --loadgen-start=4050000000000 -m=4500000000000 --packet-rate=$RATE --packet-size=$PACKET_SIZE --loadgen-mode=Increment"
   run_simulation
   exit
 fi
