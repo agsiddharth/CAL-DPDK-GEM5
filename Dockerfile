@@ -9,10 +9,13 @@ RUN apt -y update && apt -y upgrade && \
     libpng-dev libelf-dev pkg-config pip python3-venv black git-lfs 
 
 ## Install buildroot dependencies
-RUN apt -y install which sed perl rsync findutils wget ncurses5
+RUN apt -y install sed perl rsync findutils wget libncurses5 libncurses5-dev cpio unzip bc binutils
 
 ## install buildroot
 RUN mkdir -p /buildroot && wget -qO - https://buildroot.org/downloads/buildroot-2022.02.8.tar.gz | tar -xzvf - -C /buildroot --strip-component 1
+
+## ENV Vars for GEM5/BUILDROOT
+ENV GIT_ROOT=/workspaces/CAL-DPDK-GEM5
 
 ## For devcontainer, persists bash history
 RUN SNIPPET="export PROMPT_COMMAND='history -a' && export HISTFILE=/commandhistory/.bash_history" \
