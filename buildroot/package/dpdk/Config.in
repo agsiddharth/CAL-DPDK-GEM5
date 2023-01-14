@@ -1,4 +1,4 @@
-config BR2_PACKAGE_WEBSOCKET
-	bool "web-socket"
+config BR2_PACKAGE_DPDK
+	bool "dpdk"
 	help
-	  custom web socket utility
+		dpdk for gem5
