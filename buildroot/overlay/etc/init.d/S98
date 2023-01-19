@@ -1,0 +1,14 @@
+#!/bin/sh
+mount -t hugetlbfs pagesize=1GB /mnt/huge
+m5 checkpoint 1
+echo "Loading new script..."
+/sbin/m5 readfile > /tmp/runscript
+chmod 755 /tmp/runscript
+# Execute the new runscript
+if [ -s /tmp/runscript ]
+    then
+            /tmp/runscript
+    else
+        echo "Script not specified. Dropping into shell..."
+    fi
+echo "Fell through script. Exiting..."
