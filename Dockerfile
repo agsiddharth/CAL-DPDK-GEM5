@@ -6,7 +6,10 @@ RUN apt -y update && apt -y upgrade && \
     apt -y install build-essential git m4 scons zlib1g zlib1g-dev \
     libprotobuf-dev protobuf-compiler libprotoc-dev libgoogle-perftools-dev \
     python3-dev doxygen libboost-all-dev libhdf5-serial-dev python3-pydot \
-    libpng-dev libelf-dev pkg-config pip python3-venv black git-lfs 
+    libpng-dev libelf-dev pkg-config pip python3-venv black git-lfs psmisc ssh
+
+## Setup SSH for dist-gem5
+RUN ssh-keygen -t rsa -q -N '' -f ~/.ssh/id_rsa && cat ~/.ssh/id_rsa.pub >> ~/.ssh/authorized_keys && chmod og-wx ~/.ssh/authorized_keys 
 
 ## Install buildroot dependencies
 RUN apt -y install sed perl rsync findutils wget libncurses5 libncurses5-dev cpio unzip bc binutils
