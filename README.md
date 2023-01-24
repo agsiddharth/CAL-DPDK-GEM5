@@ -49,3 +49,18 @@ make BR2_EXTERNAL=$GIT_ROOT/buildroot gem5_defconfig && make
 cp /buildroot/output/images/rootfs.ext2 $GIT_ROOT/resources/
 cp /buildroot/output/images/vmlinux $GIT_ROOT/resources/
 ```
+
+## Citation Information
+
+```
+@misc{https://doi.org/10.48550/arxiv.2301.09470,
+  doi = {10.48550/ARXIV.2301.09470},
+  url = {https://arxiv.org/abs/2301.09470},
+  author = {Agarwal, Siddharth and Lee, Minwoo and Wang, Ren and Alian, Mohammad},
+  keywords = {Hardware Architecture (cs.AR), Networking and Internet Architecture (cs.NI), FOS: Computer and information sciences, FOS: Computer and information sciences, C.4},
+  title = {Enabling Kernel Bypass Networking on gem5},
+  publisher = {arXiv},
+  year = {2023},
+  copyright = {Creative Commons Attribution 4.0 International}
+}
+```
