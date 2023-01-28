@@ -1,6 +1,15 @@
 # CAL-DPDK-GEM5
 
 This repository contains the code for running kernel bypass networking (DPDK) on the gem5 system simulator, with an artificial network load generator.
+
+Check out our paper for more information:
+
+>Siddharth Agarwal, Minwoo Lee, Ren Wang, and Mohammad Alian.
+>"[**Enabling Kernel Bypass Networking on gem5**](https://arxiv.org/abs/2301.09470)".
+>arxiv , January 2023.
+
+
+
 The disk image and kernel binary is included in the repository using git LFS. (Before cloning, make sure you install git-lfs in your system).
 
 Using VSCode devcontainers is recommended, but not required.
@@ -51,6 +60,8 @@ cp /buildroot/output/images/vmlinux $GIT_ROOT/resources/
 ```
 
 ## Citation Information
+
+If you are using the DPDK extension on gem5 in your work, please cite our paper:
 
 ```
 @misc{https://doi.org/10.48550/arxiv.2301.09470,
