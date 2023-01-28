@@ -1,4 +1,4 @@
-# CAL-DPDK-GEM5
+# DPDK-GEM5
 
 This repository contains the code for running kernel bypass networking (DPDK) on the gem5 system simulator, with an artificial network load generator.
 
