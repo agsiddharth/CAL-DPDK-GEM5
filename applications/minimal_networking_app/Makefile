@@ -78,6 +78,7 @@ LDFLAGS := -L${GEM5_FS_LIB_PATH} \
 
 userfs: sample_app
 	rm -f -r out/
+	rm userfs.sqsh
 	mkdir out/
 	cp sample_app out/
 	mksquashfs out/ userfs.sqsh

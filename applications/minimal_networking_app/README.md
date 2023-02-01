@@ -37,4 +37,4 @@ This will generate the `userfs.sqsh` disk image which contains the app binary.
 * use `glog`/`gflags` in the app (requires some extra steps to setup the rootfs image);
 * integreate with the rootfs buildroot flow to make it easier;
 * have not tried yet with `-O3`, but should work..
-
+* tested with a single-queue NIC, not sure if gem5's `i8254xGBe` model supports multiple queues, but worths investigation.
