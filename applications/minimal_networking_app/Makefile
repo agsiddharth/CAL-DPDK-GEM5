@@ -84,7 +84,7 @@ userfs: sample_app
 	mksquashfs out/ userfs.sqsh
 
 sample_app: sample_app.cc
-	$(CC) $(CFLAGS) sample_app.cc $(LDFLAGS) -o sample_app
+	$(CC) -O3 $(CFLAGS) sample_app.cc $(LDFLAGS) -o sample_app
 
 clean:
 	rm sample_app

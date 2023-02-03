@@ -1,6 +1,8 @@
+
 #include <unistd.h>
 
 #include <cassert>
+#include <cstring>
 #include <iostream>
 #include <vector>
 
@@ -13,18 +15,15 @@ static const char *kPacketMemPoolName = "dpdk_packet_mem_pool";
 
 static constexpr size_t kDpdkArgcMax = 16;
 static constexpr uint16_t kRingN = 1;
-static constexpr uint16_t kRingDescN = 1024;
-
-static constexpr size_t kMTUStandardFrames = 1500;
-static constexpr size_t kMTUJumboFrames = 9000;
-
-static constexpr size_t kLinkTimeOut_ms = 100;
-
-static constexpr size_t kMaxBurst = 128;
+static constexpr uint16_t kRingDescN = 2048;
+static constexpr uint16_t kMTUStandardFrames = 1500;
+static constexpr uint16_t kMTUJumboFrames = 9000;
+static constexpr uint64_t kLinkTimeOut_ms = 100;
+static constexpr uint16_t kMaxBurst = 128;
 
 void dispatch_thread(uint16_t port_id, uint16_t rx_ring_id, uint16_t tx_ring_id,
                      size_t total_packet_to_receive, uint16_t burst_size,
-                     bool traffic_logs, size_t dummy_processing_cycles) {
+                     int traffic_logs, uint64_t dummy_processing_cycles) {
   // Recv, process, and send packet.
   std::cout << "Running dispatch thread, polling for "
             << total_packet_to_receive << " packets with " << burst_size
@@ -36,14 +35,16 @@ void dispatch_thread(uint16_t port_id, uint16_t rx_ring_id, uint16_t tx_ring_id,
     // Poll.
     uint16_t received_pckt_cnt =
         rte_eth_rx_burst(port_id, rx_ring_id, packets, burst_size);
-    if (received_pckt_cnt == 0)
+    if (unlikely(received_pckt_cnt == 0))
       continue;
 
     // Get and print stats.
-    if (traffic_logs) {
+    if (traffic_logs >= 1) {
+      std::cout << "A burst of " << received_pckt_cnt << " received\n";
+    }
+    if (traffic_logs >= 2) {
+      std::cout << "Some payload from it: ";
       constexpr size_t kTimeStampOffset = 8;
-      std::cout << "A burst of " << received_pckt_cnt
-                << " received, some data (timestamps) from them: \n";
       for (uint16_t i = 0; i < received_pckt_cnt; ++i) {
         uint64_t ts = *reinterpret_cast<uint64_t *>(
             rte_pktmbuf_mtod(packets[i], uint8_t *) + kTimeStampOffset);
@@ -53,14 +54,22 @@ void dispatch_thread(uint16_t port_id, uint16_t rx_ring_id, uint16_t tx_ring_id,
     }
 
     // Simulate dummy processing.
-    for (size_t delay = 0; delay < dummy_processing_cycles; ++delay) {
+    for (uint64_t delay = 0; delay < dummy_processing_cycles; ++delay) {
       asm volatile("");
     }
 
-    // Send it back (L2 forward).
+    // Send it back (L2 loopback).
     uint16_t sent_pckt_cnt =
         rte_eth_tx_burst(port_id, tx_ring_id, packets, received_pckt_cnt);
-    assert(sent_pckt_cnt == received_pckt_cnt);
+    if (unlikely(sent_pckt_cnt < received_pckt_cnt)) {
+      std::cout << "Failed to send " << (received_pckt_cnt - sent_pckt_cnt)
+                << " packets\n";
+    }
+
+    // For some reason, rte_eth_tx_burst does not release mbufs for even sent
+    // packets. We need to free all of them here.
+    for (uint16_t i = 0; i < received_pckt_cnt; i++)
+      rte_pktmbuf_free(packets[i]);
 
     pckt_cnt += received_pckt_cnt;
   }
@@ -69,28 +78,41 @@ void dispatch_thread(uint16_t port_id, uint16_t rx_ring_id, uint16_t tx_ring_id,
             << " packets are received and processed\n";
 }
 
+// example args: -p 10000 -b 128 -l 1 -w 0
 int main(int argc, char **argv) {
   // Parse input.
-  // TODO: use smth like gflags
-  // TODO: use glog for logging as well
-  constexpr size_t kNumArgs = 4;
+  int opt;
+
   size_t packets_to_process = 1000;
   uint16_t burst_size = 1;
-  bool traffic_logs = false;
-  size_t simulated_dummy_processing_cycles = 0;
-  if (argc == kNumArgs + 1) {
-    packets_to_process = std::atoi(argv[1]);
-    burst_size = std::atoi(argv[2]);
-    traffic_logs = std::atoi(argv[3]);
-    simulated_dummy_processing_cycles = std::atoi(argv[4]);
+  int traffic_logs = 0;
+  uint64_t simulated_dummy_processing_cycles = 0;
+  while ((opt = getopt(argc, argv, "p:b:l:w:")) != -1) {
+    switch (opt) {
+    case 'p':
+      packets_to_process = std::atoi(optarg);
+      break;
+    case 'b':
+      burst_size = std::atoi(optarg);
+      break;
+    case 'l':
+      traffic_logs = std::atoi(optarg);
+      break;
+    case 'w':
+      simulated_dummy_processing_cycles = std::atoi(optarg);
+      break;
+
+    default:
+      break;
+    }
   }
   if (burst_size > kMaxBurst) {
     std::cout << "Burst size can not be larger than " << kMaxBurst << "\n";
     return -1;
   }
   std::cout << "Invoking with packets_to_process= " << packets_to_process
-            << ", burst_size= " << burst_size << ", with traffic logs "
-            << (traffic_logs ? "enabled" : "disabled")
+            << ", burst_size= " << burst_size
+            << ", with traffic logs= " << traffic_logs
             << ", simulated_dummy_processing_cycles= "
             << simulated_dummy_processing_cycles << "\n";
 
@@ -132,7 +154,7 @@ int main(int argc, char **argv) {
 
   // Print MAC address for each valid port.
   std::cout << "Found " << p_num << " NIC ports: \n";
-  for (auto &p_id : pmd_ports) {
+  for (const auto &p_id : pmd_ports) {
     // MAC.
     std::cout << "    " << p_id << ", MAC: " << std::hex;
     rte_ether_addr mac_addr;
@@ -156,12 +178,13 @@ int main(int argc, char **argv) {
     std::cout << "Failed to fetch device info\n";
     return -1;
   }
+
   // Make minimal Ethernet port configuration:
   //  - no checksum offload
   //  - no RSS
   //  - standard frames
   rte_eth_conf port_conf;
-  memset(&port_conf, 0, sizeof(port_conf));
+  std::memset(&port_conf, 0, sizeof(port_conf));
   port_conf.link_speeds = ETH_LINK_SPEED_AUTONEG;
   port_conf.rxmode.max_rx_pkt_len = kMTUStandardFrames;
   ret = rte_eth_dev_configure(pmd_port_id, kRingN, kRingN, &port_conf);
@@ -225,14 +248,16 @@ int main(int argc, char **argv) {
   // Get link status.
   std::cout << "Port started, waiting for link to get up...\n";
   rte_eth_link link_status;
-  memset(&link_status, 0, sizeof(link_status));
+  std::memset(&link_status, 0, sizeof(link_status));
   size_t tout_cnt = 0;
   while (tout_cnt < kLinkTimeOut_ms &&
          link_status.link_status == ETH_LINK_DOWN) {
-    memset(&link_status, 0, sizeof(link_status));
+    std::memset(&link_status, 0, sizeof(link_status));
     rte_eth_link_get_nowait(pmd_port_id, &link_status);
     ++tout_cnt;
-    usleep(1000);
+
+    constexpr useconds_t ms = 1000;
+    usleep(ms);
   }
   if (link_status.link_status == ETH_LINK_UP)
     std::cout << "Link is UP and is ready to do packet I/O.\n";
