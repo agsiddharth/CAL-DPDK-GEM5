@@ -74,7 +74,7 @@ namespace gem5
         memcpy(head + 12, &size, 2);
         memcpy(ethpacket->data, head, MACHeaderSize);
         uint64_t timeStamp = gem5::curTick();
-        memcpy(&(ethpacket->data[8]), &timeStamp, sizeof(uint64_t));
+        memcpy(&(ethpacket->data[MACHeaderSize]), &timeStamp, sizeof(uint64_t));
     }
 
     void LoadGenerator::sendPacket()
@@ -84,10 +84,9 @@ namespace gem5
 
         EthPacketPtr txPacket = std::make_shared<EthPacketData>(packetSize);
         txPacket->length = packetSize;
-        // only allocate enough mem to store timestamp
-        txPacket->data = new uint8_t[2*sizeof(uint64_t)];
         buildPacket(txPacket);
         interface->sendPacket(txPacket);
+        
         if (curTick() < stopTick)
         {
             if (loadgenMode == Mode::Increment)
