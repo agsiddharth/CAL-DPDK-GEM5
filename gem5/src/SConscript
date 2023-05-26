@@ -491,6 +491,9 @@ env['PROTOC_GRPC'] = distutils.spawn.find_executable('grpc_cpp_plugin')
 if env['PROTOC_GRPC']:
     env.Append(LIBS=['grpc++'])
 
+# Add pcap library.
+env.Append(LIBS=['pcap'])
+
 def protoc_grpc_emitter(target, source, env):
     root, ext = os.path.splitext(source[0].get_abspath())
     return [root + '.grpc.pb.cc', root + '.grpc.pb.h'], source
