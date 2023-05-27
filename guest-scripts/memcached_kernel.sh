@@ -4,5 +4,6 @@ ifconfig
 sleep 1; m5 checkpoint;
 
 echo "Starting memcached server in Kernel mode"
-memcached -p 0 -U 11211 -u root -vvv
+memcached -p 0 -U 11211 -u root
+# memcached -p 0 -U 11211 -u root -vvv
 # tcpdump -i eth0 -X

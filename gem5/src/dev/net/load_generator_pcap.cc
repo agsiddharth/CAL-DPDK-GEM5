@@ -64,13 +64,22 @@ LoadGeneratorPcap::LoadGeneratorPcap(const LoadGeneratorPcapParams &p)
   }
 
   // Other params.
-  if (p.replay_mode == "SimpleReplay")
+  if (p.replay_mode == "SimpleReplay") {
     replayMode = ReplayMode::SimpleReplay;
-  else if (p.replay_mode == "ReplayAndAdjustThroughput")
+    DPRINTF(LoadgenDebug, "Running Pcap load generator in SimpleReplay mode\n");
+  } else if (p.replay_mode == "ReplayAndAdjustThroughput") {
     replayMode = ReplayMode::ReplayAndAdjustThroughput;
-  else if (p.replay_mode == "ConstThroughput")
+    DPRINTF(LoadgenDebug,
+            "Running Pcap load generator in ReplayAndAdjustThroughput mode, "
+            "base packet rate: %d pps, interval: %d\n",
+            packetRate, incrementInterval);
+  } else if (p.replay_mode == "ConstThroughput") {
     replayMode = ReplayMode::ConstThroughput;
-  else
+    DPRINTF(LoadgenDebug,
+            "Running Pcap load generator in ConstThroughput mode, target "
+            "packet rate: %d pps\n",
+            packetRate);
+  } else
     fatal("Unknown replay mode");
 }
 

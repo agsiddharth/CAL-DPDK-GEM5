@@ -61,7 +61,7 @@ while true; do
     shift 2
     ;;
   --packet-rate)
-    PACKET_RATE="$2"
+    PACKET_RATE="$3"
     shift 2
     ;;
   --loadgen-find-bw)
@@ -101,7 +101,7 @@ else
     usage
   fi
 
-  PORT=11211
+  PORT=11211    # for memcached
   PCAP_FILENAME="../memcached.pcap"
   ((INCR_INTERVAL = PACKET_RATE / 10))
   RUNDIR=${GIT_ROOT}/rundir/$num_nics"NIC"
@@ -110,7 +110,7 @@ else
   GEM5TYPE="opt"
   LOADGENMODE=${LOADGENMODE:-"Static"}
   DEBUG_FLAGS="--debug-flags=LoadgenDebug"
-  CONFIGARGS="$CACHE_CONFIG -r 1 --loadgen-type=Pcap --loadgen_pcap_filename=$PCAP_FILENAME --loadgen-start=4050000000000 -m=4500000000000 --packet-rate=1000 --loadgen-replymode=$LOADGENREPLYMODE --loadgen-port-filter=$PORT --loadgen-increment-interva=1"
+  CONFIGARGS="$CACHE_CONFIG -r 1 --loadgen-type=Pcap --loadgen_pcap_filename=$PCAP_FILENAME --loadgen-start=4050000000000 -m=4500000000000 --packet-rate=$PACKET_RATE --loadgen-replymode=$LOADGENREPLYMODE --loadgen-port-filter=$PORT --loadgen-increment-interva=$INCR_INTERVAL"
   run_simulation
   exit
 fi
