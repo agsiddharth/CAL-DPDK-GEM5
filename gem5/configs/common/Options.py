@@ -104,13 +104,22 @@ class ListPlatform(argparse.Action):
 
 def addNoISAOptions(parser):
     parser.add_argument("--perf-io", type=str, default="False")
-    parser.add_argument("--packet-rate", type=int, default=1)
-    parser.add_argument("--packet-size", type=int, default=1)
     parser.add_argument("--num-nics", type=int, default=1)
+    # For all loadgens:
     parser.add_argument("--num-loadgens", type=int, default=0)
+    parser.add_argument("--loadgen-type", type=str, default="Simple")
+    parser.add_argument("--packet-rate", type=int, default=1)
     parser.add_argument("--loadgen-start", type=int, default=1)
-    parser.add_argument("--loadgen-mode", type=str, default="Static")
     parser.add_argument("--loadgen-stop", type=int, default=m5.MaxTick)
+    # For Simple loadgen:
+    parser.add_argument("--loadgen-mode", type=str, default="Static")
+    parser.add_argument("--packet-size", type=int, default=1)
+    # For Pcap loadgen:
+    parser.add_argument("--loadgen_pcap_filename", type=str, default="")
+    parser.add_argument("--loadgen-replymode", type=str, default="ReplyAndAdjustThroughput")
+    parser.add_argument("--loadgen-port-filter", type=int, default=1)
+    parser.add_argument("--loadgen-increment-interval", type=int, default=1)
+
     parser.add_argument("-n", "--num-cpus", type=int, default=1)
     parser.add_argument("--sys-voltage", action="store", type=str,
                         default='1.0V',

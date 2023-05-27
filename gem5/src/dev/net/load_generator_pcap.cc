@@ -17,6 +17,7 @@ static constexpr size_t kLatencyHistSize = 100;
 static constexpr unsigned kEtherHeaderSize = 14;
 static constexpr unsigned kCheckLossInteval = 1000;
 static constexpr size_t kLossCheckWaitCycles = 100000000;
+static constexpr uint16_t checkLossInterval = 1000;
 
 namespace gem5 {
 LoadGeneratorPcap::LoadGeneratorPcapStats::LoadGeneratorPcapStats(
@@ -40,7 +41,10 @@ LoadGeneratorPcap::LoadGeneratorPcap(const LoadGeneratorPcapParams &p)
       stopTick(p.stop_tick),
       maxPcktSize(p.max_packetsize),
       portFilter(p.port_filter),
+      srcIP(p.replace_src_ip),
       destIP(p.replace_dest_ip),
+      packetRate(p.packet_rate),
+      incrementInterval(p.increment_interval),
       lastRxCount(0),
       lastTxCount(0),
       pcapFilename(p.pcap_filename),
@@ -60,13 +64,14 @@ LoadGeneratorPcap::LoadGeneratorPcap(const LoadGeneratorPcapParams &p)
   }
 
   // Other params.
-  if (p.reply_mode == "SimpleReply")
-    replyMode = ReplyMode::SimpleReply;
-  else if (p.reply_mode == "ReplyAndAdjustThroughput") {
-    replyMode = ReplyMode::ReplyAndAdjustThroughput;
-  } else {
-    fatal("Unknown reply mode");
-  }
+  if (p.replay_mode == "SimpleReplay")
+    replayMode = ReplayMode::SimpleReplay;
+  else if (p.replay_mode == "ReplayAndAdjustThroughput")
+    replayMode = ReplayMode::ReplayAndAdjustThroughput;
+  else if (p.replay_mode == "ConstThroughput")
+    replayMode = ReplayMode::ConstThroughput;
+  else
+    fatal("Unknown replay mode");
 }
 
 LoadGeneratorPcap::~LoadGeneratorPcap() {
@@ -182,10 +187,14 @@ void LoadGeneratorPcap::sendPacket() {
     return;
   }
 
-  // Replace the destination IP address by the one in configuration (to
-  // match with the OS ifconfig).
-  ip *iph_mutable = const_cast<ip *>(iph);
-  inet_aton(destIP.c_str(), &iph_mutable->ip_dst);
+  // Replace the source and destination IP address by the one in configuration
+  // (to match with the OS ifconfig).
+  // TODO: disabling for now as this does not work, perhaps the checksum needs
+  // to be hacked as well.
+
+  // ip *iph_mutable = const_cast<ip *>(iph);
+  // inet_aton(destIP.c_str(), &iph_mutable->ip_dst);
+  // inet_aton(srcIP.c_str(), &iph_mutable->ip_src);
 
   // Merge with our own Ethernet header.
   assert(pcap_header->len == ntohs(iph->ip_len) + kEtherHeaderSize);
@@ -200,10 +209,16 @@ void LoadGeneratorPcap::sendPacket() {
   DPRINTF(LoadgenDebug, "Packet was sent!\n");
 
   if (curTick() < stopTick) {
-    if (replyMode == ReplyMode::ReplyAndAdjustThroughput) {
-      schedule(sendPacketEvent, curTick() + 1000000);
+    if (replayMode == ReplayMode::ConstThroughput) {
+      schedule(sendPacketEvent, curTick() + pckt_freq());
+    } else if (replayMode == ReplayMode::ReplayAndAdjustThroughput) {
+      if (lastTxCount == kCheckLossInteval) {
+        schedule(checkLossEvent, curTick() + kLossCheckWaitCycles);
+      } else {
+        schedule(sendPacketEvent, curTick() + pckt_freq());
+      }
     } else {
-      warn("Weird reply mode detected, nothing will be scheduled next!");
+      warn("Weird replay mode detected, nothing will be scheduled next!");
       return;
     }
   }
@@ -215,28 +230,30 @@ void LoadGeneratorPcap::sendPacket() {
 }
 
 void LoadGeneratorPcap::checkLoss() {
-  // if (lastTxCount - lastRxCount < 10) {
-  //   packetRate = packetRate + incrementInterval;
-  //   schedule(sendPacketEvent, curTick() + frequency());
-  //   DPRINTF(LoadgenDebug, "Rate Incremented, now sending packets at %u \n",
-  //           packetRate);
-  //   DPRINTF(LoadgenDebug, "Rx %lu, Tx %lu \n", lastRxCount, lastTxCount);
-  // } else {
-  //   if ((packetRate - incrementInterval) < packetRate)
-  //     packetRate = packetRate - incrementInterval;
+  if (lastTxCount - lastRxCount < 10) {
+    // No loss - incrrement packet rate.
+    packetRate = packetRate + incrementInterval;
+    schedule(sendPacketEvent, curTick() + pckt_freq());
+    DPRINTF(LoadgenDebug, "Rate Incremented, now sending packets at %u \n",
+            packetRate);
+    DPRINTF(LoadgenDebug, "Rx %lu, Tx %lu \n", lastRxCount, lastTxCount);
+  } else {
+    // Loss deteceted - dectement rate.
+    if ((packetRate - incrementInterval) < packetRate)
+      packetRate = packetRate - incrementInterval;
 
-  //   // add extra delay to prevent previouse loss from affecting results
-  //   schedule(sendPacketEvent, curTick() + frequency() +
-  //   kLossCheckWaitCycles); DPRINTF(LoadgenDebug, "Loss Detected, now sending
-  //   packets at %u \n",
-  //           packetRate);
-  //   DPRINTF(LoadgenDebug, "Rx %lu, Tx %lu \n", lastRxCount, lastTxCount);
-  // }
-  // lastTxCount = 0;
-  // lastRxCount = 0;
+    // add extra delay to prevent previouse loss from affecting results
+    schedule(sendPacketEvent, curTick() + pckt_freq() + kLossCheckWaitCycles);
+    DPRINTF(LoadgenDebug, "Loss Detected, now sending packets at %u \n ",
+            packetRate);
+    DPRINTF(LoadgenDebug, "Rx %lu, Tx %lu \n", lastRxCount, lastTxCount);
+  }
+
+  lastTxCount = 0;
+  lastRxCount = 0;
 }
 
-void LoadGeneratorPcap::endTest() {
+void LoadGeneratorPcap::endTest() const {
   exitSimLoop("m5_exit by loadgen End Simulator.", 0, curTick(), 0, true);
 }
 

@@ -16,7 +16,11 @@ class LoadGenPcapInt;
 class LoadGeneratorPcap : public SimObject {
   // Configuration modes.
   enum class StackMode { Kernel, DPDK };
-  enum class ReplyMode { SimpleReply, ReplyAndAdjustThroughput };
+  enum class ReplayMode {
+    SimpleReplay,
+    ReplayAndAdjustThroughput,
+    ConstThroughput
+  };
 
  private:
   // Unique ID of this module to be used as a part of the "device"'s MAC
@@ -29,8 +33,10 @@ class LoadGeneratorPcap : public SimObject {
   const Tick stopTick;
   const size_t maxPcktSize;
   const uint16_t portFilter;
-  const std::string destIP;
-  ReplyMode replyMode;
+  const std::string srcIP, destIP;
+  ReplayMode replayMode;
+  uint32_t packetRate;
+  Tick incrementInterval;
 
   // Stats for checking the loss.
   uint64_t lastRxCount;
@@ -55,10 +61,12 @@ class LoadGeneratorPcap : public SimObject {
   void sendPacket();
   void checkLoss();
 
-  void endTest();  // TODO: do we need this?
+  void endTest() const;
 
   // Incapsulate packet into Ethernet frame.
   void buildEthernetHeader(EthPacketPtr ethpacket) const;
+
+  inline Tick pckt_freq() const { return 1e12 / packetRate; }
 
  public:
   LoadGeneratorPcap(const LoadGeneratorPcapParams &p);
