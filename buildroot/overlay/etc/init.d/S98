@@ -1,4 +1,5 @@
 #!/bin/sh
+mkdir /mnt/huge
 mount -t hugetlbfs pagesize=1GB /mnt/huge
 m5 checkpoint 1
 echo "Loading new script..."
