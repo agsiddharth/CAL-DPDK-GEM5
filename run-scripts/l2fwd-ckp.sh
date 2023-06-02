@@ -100,7 +100,7 @@ if [[ -n "$checkpoint" ]]; then
   ## packet-size = 0 leads to segfault
   PACKET_SIZE=128
   CPUTYPE="AtomicSimpleCPU"
-  CONFIGARGS="-m 60000000000000"
+  CONFIGARGS="--max-checkpoints 2"
   run_simulation
   exit 0
 else
