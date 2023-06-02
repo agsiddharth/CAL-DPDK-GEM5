@@ -18,6 +18,7 @@
 #include <signal.h>
 #include <stdbool.h>
 
+#include <gem5/m5ops.h>
 #include <rte_common.h>
 #include <rte_log.h>
 #include <rte_malloc.h>
@@ -892,7 +893,7 @@ main(int argc, char **argv)
 	}
 
 	check_all_ports_link_status(l2fwd_enabled_port_mask);
-
+	m5_checkpoint(0, 0);
 	ret = 0;
 	/* launch per-lcore init on every lcore */
 	rte_eal_mp_remote_launch(l2fwd_launch_one_lcore, NULL, CALL_MAIN);

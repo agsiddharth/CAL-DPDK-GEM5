@@ -102,7 +102,8 @@ foreach example: examples
 			link_whole: link_whole_libs,
 			link_args: ldflags,
 			c_args: cflags,
-			dependencies: dep_objs)
+			dependencies: dep_objs,
+			install: true)
 	elif not allow_skips
 		error('Cannot build requested example "' + name + '"')
 	else

@@ -5,7 +5,7 @@
 #
 # To build this example as a standalone application with an already-installed
 # DPDK instance, use 'make'
-
+ext_deps += [c.find_library('libm5', dirs : gem5dir)]
 # Enable experimental API flag as l2fwd uses rte_ethdev_set_ptype API
 allow_experimental_apis = true
 sources = files(

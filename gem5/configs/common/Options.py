@@ -105,7 +105,7 @@ class ListPlatform(argparse.Action):
 def addNoISAOptions(parser):
     parser.add_argument("--perf-io", type=str, default="False")
     parser.add_argument("--packet-rate", type=int, default=1)
-    parser.add_argument("--packet-size", type=int, default=1)
+    parser.add_argument("--packet-size", type=int, default=128)
     parser.add_argument("--num-nics", type=int, default=1)
     parser.add_argument("--num-loadgens", type=int, default=0)
     parser.add_argument("--loadgen-start", type=int, default=1)

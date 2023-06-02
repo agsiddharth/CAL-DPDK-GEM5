@@ -97,8 +97,10 @@ if [[ -n "$checkpoint" ]]; then
   setup_dirs
   echo "Taking Checkpoint for NICs=$num_nics" >&2
   GEM5TYPE="fast"
+  ## packet-size = 0 leads to segfault
+  PACKET_SIZE=128
   CPUTYPE="AtomicSimpleCPU"
-  CONFIGARGS="-m 6000000000000"
+  CONFIGARGS="-m 60000000000000"
   run_simulation
   exit 0
 else
@@ -119,7 +121,7 @@ else
   GEM5TYPE="opt"
   LOADGENMODE=${LOADGENMODE:-"Static"}
   DEBUG_FLAGS="--debug-flags=LoadgenDebug"
-  CONFIGARGS="$CACHE_CONFIG -r 2 --loadgen-start=4050000000000 -m=4500000000000 --packet-rate=$PACKET_RATE --packet-size=$PACKET_SIZE --loadgen-mode=$LOADGENMODE"
+  CONFIGARGS="$CACHE_CONFIG -r 2 --loadgen-start=9250000000000 -m=9500000000000 --packet-rate=$PACKET_RATE --packet-size=$PACKET_SIZE --loadgen-mode=$LOADGENMODE"
   run_simulation
   exit
 fi
