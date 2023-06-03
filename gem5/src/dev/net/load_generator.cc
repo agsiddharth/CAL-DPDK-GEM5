@@ -22,7 +22,7 @@ namespace gem5
 
 
     LoadGenerator::LoadGenerator(const LoadGeneratorParams &p) : SimObject(p), loadgenId(p.loadgen_id), packetSize(p.packet_size), packetRate(p.packet_rate), 
-    startTick(p.start_tick), stopTick(p.stop_tick), checkLossInterval(1000), incrementInterval(5e+8/(packetSize*8)),// Whats a good value for this?
+    startTick(p.start_tick), stopTick(p.stop_tick), checkLossInterval(5000), incrementInterval(5e+8/(packetSize*8)),// Whats a good value for this?
     burstWidth(p.burst_width), burstGap(p.burst_gap), burstStartTick(0),
     lastRxCount(0), lastTxCount(0),
     sendPacketEvent([this]{sendPacket();}, name()), checkLossEvent([this]{checkLoss();}, name()), loadGeneratorStats(this)

@@ -121,7 +121,7 @@ else
   GEM5TYPE="opt"
   LOADGENMODE=${LOADGENMODE:-"Static"}
   DEBUG_FLAGS="--debug-flags=LoadgenDebug"
-  CONFIGARGS="$CACHE_CONFIG -r 2 --loadgen-start=9250000000000 -m=9500000000000 --packet-rate=$PACKET_RATE --packet-size=$PACKET_SIZE --loadgen-mode=$LOADGENMODE"
+  CONFIGARGS="$CACHE_CONFIG -r 2 --loadgen-start=11538342830500 --rel-max-tick=300000000000 --packet-rate=$PACKET_RATE --packet-size=$PACKET_SIZE --loadgen-mode=$LOADGENMODE"
   run_simulation
   exit
 fi
