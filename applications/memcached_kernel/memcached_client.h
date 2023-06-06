@@ -13,7 +13,7 @@
 #include <string>
 
 static constexpr size_t kClSize = 64;
-static constexpr size_t kMaxPacketSize = 65536;
+static constexpr size_t kMaxPacketSize = 1500;
 
 class MemcachedClient {
  public:
@@ -87,8 +87,6 @@ class MemcachedClient {
     if (wait_for_response) {
       uint16_t req_id_rcv;
       uint16_t seq_n_recv;
-      std::cout << "req_id_rcv= " << req_id_rcv
-                << ", seq_n_recv= " << seq_n_recv << "\n";
       recv();
       int ret = parse_set_response(&req_id_rcv, &seq_n_recv);
       if (ret != kOK) // || req_id_rcv != request_id)

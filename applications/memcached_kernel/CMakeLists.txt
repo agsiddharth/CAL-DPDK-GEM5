@@ -8,8 +8,12 @@ add_definitions(-fstack-protector -fPIE -fPIC)
 add_definitions(-Wno-unused-function)
 add_definitions(-D_FORTIFY_SOURCE=2)
 
+# Common third-party modules
+find_package(gflags REQUIRED)
+
 #
 include_directories(${CMAKE_CURRENT_SOURCE_DIR})
 
 #
 add_executable(memcached_client memcached_client.cc)
+target_link_libraries(memcached_client gflags)
