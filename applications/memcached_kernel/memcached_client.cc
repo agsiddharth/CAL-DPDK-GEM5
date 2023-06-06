@@ -18,9 +18,9 @@ DEFINE_string(dataset_val_size, "100-1000-0.9",
 DEFINE_uint32(populate_workload_size, 1000,
               "Size of the sub-set of the dataset used for initial population "
               "of the memcached server.");
-DEFINE_string(
-    workload_config, "100-0.9",
-    "The workload to execute, format: <number_of_queries-GET/(SET+GET)>");
+DEFINE_string(workload_config, "100-0.9-1",
+              "The workload to execute, format: "
+              "<number_of_queries-GET/(SET+GET)-correctness_check>");
 
 typedef std::vector<std::vector<uint8_t>> DSet;
 
@@ -30,7 +30,7 @@ static constexpr size_t kMaxValSize = 65536;
 static volatile bool kCtlzArmed = false;
 void signal_callback_handler(int signum) { kCtlzArmed = true; }
 
-int main(int argc, char *argv[]) {
+int main(int argc, char* argv[]) {
   gflags::ParseCommandLineFlags(&argc, &argv, true);
 
   // Register signal handler.
@@ -107,11 +107,15 @@ int main(int argc, char *argv[]) {
 
   size_t wrkl_size;
   float wrkl_get_frac;
-  sscanf(FLAGS_workload_config.c_str(), "%lu-%f", &wrkl_size, &wrkl_get_frac);
+  int correctness_check;
+  sscanf(FLAGS_workload_config.c_str(), "%lu-%f-%d", &wrkl_size, &wrkl_get_frac,
+         &correctness_check);
   size_t num_of_unique_sets = ds_size - populate_ds_size;
+  bool verify_correctness = (correctness_check == 1) ? true : false;
   std::cout << "Executing workload of #queries: " << wrkl_size
             << ", GET/SET= " << wrkl_get_frac
-            << ", unique SET keys: " << num_of_unique_sets << "\n";
+            << ", unique SET keys: " << num_of_unique_sets
+            << ", correctness check: " << verify_correctness << "\n";
 
   size_t get_errors = 0;
   size_t get_data_errors = 0;
@@ -119,6 +123,9 @@ int main(int argc, char *argv[]) {
   size_t set_errors = 0;
   uint8_t val_ret[kMaxValSize];
   uint32_t val_ret_length;
+
+  struct timespec wrkl_start, wrkl_end;
+  clock_gettime(CLOCK_MONOTONIC, &wrkl_start);
   for (size_t i = 0; i < wrkl_size; ++i) {
     float get_set = rand() / (float)RAND_MAX;
     if (get_set < wrkl_get_frac) {
@@ -129,11 +136,13 @@ int main(int argc, char *argv[]) {
       int res =
           client.get(i, 0, key.data(), key.size(), val_ret, &val_ret_length);
       if (res == 0) {
-        // Check result.
-        auto val = dset_vals[random_key_idx];
-        if (val.size() != val_ret_length ||
-            std::memcmp(val.data(), val_ret, val.size()) != 0) {
-          ++get_data_errors;
+        if (verify_correctness) {
+          // Check result.
+          auto val = dset_vals[random_key_idx];
+          if (val.size() != val_ret_length ||
+              std::memcmp(val.data(), val_ret, val.size()) != 0) {
+            ++get_data_errors;
+          }
         }
       } else {
         ++get_errors;
@@ -149,7 +158,15 @@ int main(int argc, char *argv[]) {
       ++set_cnt;
     }
   }
-  std::cout << "Workload executed, error statistics: \n";
+  clock_gettime(CLOCK_MONOTONIC, &wrkl_end);
+  static constexpr long int kBillion = 1000000000L;
+  long int wrkl_diff = kBillion * (wrkl_end.tv_sec - wrkl_start.tv_sec) +
+                       wrkl_end.tv_nsec - wrkl_start.tv_nsec;
+  double wrkl_ns = wrkl_diff / (double)wrkl_size;
+  double wrkl_avg_thr = kBillion * (1 / wrkl_ns);  // qps
+
+  std::cout << "Workload executed, some statistics: \n";
+  std::cout << "   * average throughput: " << wrkl_avg_thr << " qps\n";
   std::cout << "   * GET errors: " << get_errors << "\n";
   std::cout << "   * GET data errors: " << get_data_errors << "\n";
   std::cout << "   * SET errors: " << set_errors << "\n";
