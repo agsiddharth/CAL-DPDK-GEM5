@@ -20,9 +20,9 @@ DEFINE_string(dataset_val_size, "100-1000-0.9",
 DEFINE_uint32(populate_workload_size, 1000,
               "Size of the sub-set of the dataset used for initial population "
               "of the memcached server.");
-DEFINE_string(
-    workload_config, "100-0.9",
-    "The workload to execute, format: <number_of_queries-GET/(SET+GET)>");
+DEFINE_string(workload_config, "100-0.9-100",
+              "The workload to execute, format: "
+              "<number_of_queries-GET/(SET+GET)>-delay_cycles");
 
 typedef std::vector<std::vector<uint8_t>> DSet;
 
@@ -35,6 +35,10 @@ void signal_callback_handler(int signum) {
   kCtlzArmed = true;
 }
 
+// ./memcached_client --server_ip=10.212.84.119 --blocking=false
+// --dataset_size=5000 --dataset_key_size="10-100-0.9"
+// --dataset_val_size="10-100-0.5" --populate_workload_size=2000
+// --workload_config="10000-0.8-10000"
 int main(int argc, char* argv[]) {
   gflags::ParseCommandLineFlags(&argc, &argv, true);
 
@@ -120,7 +124,9 @@ int main(int argc, char* argv[]) {
 
   size_t wrkl_size;
   float wrkl_get_frac;
-  sscanf(FLAGS_workload_config.c_str(), "%lu-%f", &wrkl_size, &wrkl_get_frac);
+  size_t wrkl_delay;
+  sscanf(FLAGS_workload_config.c_str(), "%lu-%f-%lu", &wrkl_size,
+         &wrkl_get_frac, &wrkl_delay);
   size_t num_of_unique_sets = ds_size - populate_ds_size;
   std::cout << "Executing workload of #queries: " << wrkl_size
             << ", GET/SET= " << wrkl_get_frac
@@ -141,6 +147,11 @@ int main(int argc, char* argv[]) {
   struct timespec wrkl_start, wrkl_end;
   clock_gettime(CLOCK_MONOTONIC, &wrkl_start);
   for (size_t i = 0; i < wrkl_size; ++i) {
+    // Blocking delay to control the rps rate.
+    for (size_t delay = 0; delay < wrkl_delay; ++delay) {
+      asm("");
+    }
+
     float get_set = rand() / (float)RAND_MAX;
     if (get_set < wrkl_get_frac) {
       // Execute GET.
