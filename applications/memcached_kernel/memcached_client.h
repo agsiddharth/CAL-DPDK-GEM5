@@ -11,9 +11,11 @@
 #include <cstring>
 #include <iostream>
 #include <string>
+#include <thread>
 
 static constexpr size_t kClSize = 64;
 static constexpr size_t kMaxPacketSize = 1500;
+static constexpr size_t kSockTimeout = 1;  // sec.
 
 class MemcachedClient {
  public:
@@ -30,17 +32,28 @@ class MemcachedClient {
     kOtherError = 0xff
   };
 
+  enum DispatchMode { kBlocking = 0x0, kNonBlocking = 0x1 };
+
   MemcachedClient(const std::string &server_hostname, uint16_t port)
       : serverHostname(server_hostname),
         port(port),
         sock(-1),
+        dispatchMode(DispatchMode::kBlocking),
         tx_buff(nullptr),
-        rx_buff(nullptr) {}
+        rx_buff(nullptr),
+        runRecvThread(false) {}
 
   ~MemcachedClient() {
+    if (dispatchMode == DispatchMode::kNonBlocking) {
+      if (runRecvThread) {
+        runRecvThread = false;
+        recvThread.join();
+      }
+    }
+
+    if (sock != -1) close(sock);
     if (tx_buff != nullptr) std::free(tx_buff);
     if (rx_buff != nullptr) std::free(rx_buff);
-    if (sock != -1) close(sock);
   }
 
   int Init() {
@@ -61,6 +74,13 @@ class MemcachedClient {
       return -1;
     }
 
+    // Set recv. timeout on sock.
+    struct timeval tv = {.tv_sec = kSockTimeout, .tv_usec = 0};
+    if (setsockopt(sock, SOL_SOCKET, SO_RCVTIMEO, &tv, sizeof(tv)) < 0) {
+      std::cerr << "Faile to set socket timeout." << std::endl;
+      return -1;
+    }
+
     // Init buffers.
     tx_buff =
         static_cast<uint8_t *>(std::aligned_alloc(kClSize, kMaxPacketSize));
@@ -73,9 +93,33 @@ class MemcachedClient {
     return 0;
   }
 
+  // Set dispatch mode: if going from blocking (default) to non-blocking,
+  // spin-up recv thread; if going from non-blocking to blocking, stop it.
+  void setDispatchMode(DispatchMode dispatch_mode) {
+    if (dispatchMode == DispatchMode::kBlocking &&
+        dispatch_mode == DispatchMode::kNonBlocking) {
+      zeroOutRecvStat();
+      dispatchMode = DispatchMode::kNonBlocking;
+      runRecvThread = true;
+      recvThread = std::move(std::thread(&MemcachedClient::recvCallback, this));
+      std::cout << "Dispatch mode changed: bloking -> non-blocking\n";
+      return;
+    }
+
+    if (dispatchMode == DispatchMode::kNonBlocking &&
+        dispatch_mode == DispatchMode::kBlocking) {
+      if (runRecvThread) {
+        runRecvThread = false;
+        recvThread.join();
+      }
+      dispatchMode = DispatchMode::kBlocking;
+      std::cout << "Dispatch mode changed: non-bloking -> blocking\n";
+      return;
+    }
+  }
+
   int set(uint16_t request_id, uint16_t sequence_n, const uint8_t *key,
-          uint16_t key_len, const uint8_t *val, uint32_t val_len,
-          bool wait_for_response = true) {
+          uint16_t key_len, const uint8_t *val, uint32_t val_len) {
     uint32_t len = 0;
     int res =
         form_set(request_id, sequence_n, key, key_len, val, val_len, &len);
@@ -84,12 +128,12 @@ class MemcachedClient {
     res = send(len);
     if (res != 0) return res;
 
-    if (wait_for_response) {
+    if (dispatchMode == DispatchMode::kBlocking) {
       uint16_t req_id_rcv;
       uint16_t seq_n_recv;
       recv();
       int ret = parse_set_response(&req_id_rcv, &seq_n_recv);
-      if (ret != kOK) // || req_id_rcv != request_id)
+      if (ret != kOK)  // || req_id_rcv != request_id)
         return -1;
       else
         return 0;
@@ -99,8 +143,7 @@ class MemcachedClient {
   }
 
   int get(uint16_t request_id, uint16_t sequence_n, const uint8_t *key,
-          uint16_t key_len, uint8_t *val_out, uint32_t *val_out_length,
-          bool wait_for_response = true) {
+          uint16_t key_len, uint8_t *val_out, uint32_t *val_out_length) {
     uint32_t len = 0;
     int res = form_get(request_id, sequence_n, key, key_len, &len);
     if (res != 0) return res;
@@ -108,7 +151,7 @@ class MemcachedClient {
     res = send(len);
     if (res != 0) return res;
 
-    if (wait_for_response) {
+    if (dispatchMode == DispatchMode::kBlocking) {
       assert(val_out != nullptr);
       assert(val_out_length != nullptr);
 
@@ -117,7 +160,7 @@ class MemcachedClient {
       recv();
       int ret =
           parse_get_response(&req_id_rcv, &seq_n_recv, val_out, val_out_length);
-      if (ret != kOK) // || req_id_rcv != request_id)
+      if (ret != kOK)  // || req_id_rcv != request_id)
         return -1;
       else
         return 0;
@@ -126,16 +169,44 @@ class MemcachedClient {
     return 0;
   }
 
+  size_t dumpRecvStat() const {
+    if (dispatchMode == DispatchMode::kNonBlocking)
+      return nonBlockRecvStat.totalRecved;
+    else {
+      std::cout << "WARNING: attempting to read recv statistics for a blocking "
+                   "connection, this does not really make sense.\n";
+    }
+
+    return 0;
+  }
+
+  void zeroOutRecvStat() {
+    nonBlockRecvStat.totalRecved = 0;
+    nonBlockRecvStat.setRecved = 0;
+    nonBlockRecvStat.getRecved = 0;
+  }
+
  private:
   // Net things.
   std::string serverHostname;
   uint16_t port;
   sockaddr_in serverAddress;
   int sock;
+  DispatchMode dispatchMode;
 
   // Buffers.
   uint8_t *tx_buff;
   uint8_t *rx_buff;
+
+  // Recv thread and statistics for nonBlocking calls.
+  volatile bool runRecvThread;
+  std::thread recvThread;
+  struct NonBlockStat {
+    size_t totalRecved;
+    size_t setRecved;
+    size_t getRecved;
+  };
+  NonBlockStat nonBlockRecvStat;
 
   // Memcached has it's own extra header for the UDP protocol; it's not really
   // documented, but can be found here: memcached.c:build_udp_header().
@@ -342,8 +413,14 @@ class MemcachedClient {
     socklen_t len;
     recvfrom(sock, rx_buff, kMaxPacketSize, 0,
              (struct sockaddr *)&serverAddress_rvc, &len);
-    // for (int i = 0; i < bytesRecv; ++i) std::cout << (char)(rx_buff[i]) << "
-    // ";
+  }
+
+  // Runs in nonBlocking mode to receive responses.
+  void recvCallback() {
+    while (runRecvThread) {
+      recv();
+      ++nonBlockRecvStat.totalRecved;
+    }
   }
 };
 

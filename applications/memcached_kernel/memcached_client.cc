@@ -10,6 +10,8 @@
 
 DEFINE_string(server_ip, "127.0.0.1", "IP address of the memcached server.");
 DEFINE_uint32(server_port, 11211, "UDP port of the memcached server.");
+DEFINE_bool(blocking, false,
+            "Threading: false - non-blocking, true - blocking");
 DEFINE_uint32(dataset_size, 2000, "Total size of the dataset");
 DEFINE_string(dataset_key_size, "10-100-0.9",
               "Key size in the dataset, format: <min-max-skew>.");
@@ -18,9 +20,9 @@ DEFINE_string(dataset_val_size, "100-1000-0.9",
 DEFINE_uint32(populate_workload_size, 1000,
               "Size of the sub-set of the dataset used for initial population "
               "of the memcached server.");
-DEFINE_string(workload_config, "100-0.9-1",
-              "The workload to execute, format: "
-              "<number_of_queries-GET/(SET+GET)-correctness_check>");
+DEFINE_string(
+    workload_config, "100-0.9",
+    "The workload to execute, format: <number_of_queries-GET/(SET+GET)>");
 
 typedef std::vector<std::vector<uint8_t>> DSet;
 
@@ -28,7 +30,10 @@ static constexpr size_t kMaxValSize = 65536;
 
 // To catch Ctl-C.
 static volatile bool kCtlzArmed = false;
-void signal_callback_handler(int signum) { kCtlzArmed = true; }
+void signal_callback_handler(int signum) {
+  (void)(signum);
+  kCtlzArmed = true;
+}
 
 int main(int argc, char* argv[]) {
   gflags::ParseCommandLineFlags(&argc, &argv, true);
@@ -37,6 +42,10 @@ int main(int argc, char* argv[]) {
   signal(SIGINT, signal_callback_handler);
 
   // Init memcached client.
+  std::cout << "Initializing a "
+            << (FLAGS_blocking ? "blocking" : "non-blocking")
+            << " memcached client"
+            << "\n";
   MemcachedClient client(FLAGS_server_ip, FLAGS_server_port);
   client.Init();
 
@@ -89,6 +98,9 @@ int main(int argc, char* argv[]) {
     std::cout << "Populating memcached server with " << populate_ds_size
               << " first elements from the generated dataset.\n";
   }
+
+  // We always populate in the blocking mode.
+  client.setDispatchMode(MemcachedClient::kBlocking);
   size_t populate_errors = 0;
   for (size_t i = 0; i < populate_ds_size; ++i) {
     int res = client.set(i, 0, dset_keys[i].data(), dset_keys[i].size(),
@@ -98,6 +110,7 @@ int main(int argc, char* argv[]) {
   std::cout << "Server populated with " << populate_ds_size
             << " key-value pairs, "
             << " error count: " << populate_errors << "\n";
+  client.zeroOutRecvStat();
 
   // Execute the load.
   std::cout << "Press <Ctrl-C> to execute the workload...\n";
@@ -107,22 +120,23 @@ int main(int argc, char* argv[]) {
 
   size_t wrkl_size;
   float wrkl_get_frac;
-  int correctness_check;
-  sscanf(FLAGS_workload_config.c_str(), "%lu-%f-%d", &wrkl_size, &wrkl_get_frac,
-         &correctness_check);
+  sscanf(FLAGS_workload_config.c_str(), "%lu-%f", &wrkl_size, &wrkl_get_frac);
   size_t num_of_unique_sets = ds_size - populate_ds_size;
-  bool verify_correctness = (correctness_check == 1) ? true : false;
   std::cout << "Executing workload of #queries: " << wrkl_size
             << ", GET/SET= " << wrkl_get_frac
             << ", unique SET keys: " << num_of_unique_sets
-            << ", correctness check: " << verify_correctness << "\n";
+            << ", blocking?: " << FLAGS_blocking << "\n";
 
   size_t get_errors = 0;
   size_t get_data_errors = 0;
   size_t set_cnt = 0;
   size_t set_errors = 0;
   uint8_t val_ret[kMaxValSize];
-  uint32_t val_ret_length;
+  uint32_t val_ret_length = 0;
+
+  // Set dispatch semantics based on the configuration.
+  client.setDispatchMode(FLAGS_blocking ? MemcachedClient::kBlocking
+                                        : MemcachedClient::kNonBlocking);
 
   struct timespec wrkl_start, wrkl_end;
   clock_gettime(CLOCK_MONOTONIC, &wrkl_start);
@@ -132,11 +146,11 @@ int main(int argc, char* argv[]) {
       // Execute GET.
       // Always hit in the cache, i.e. use a populated key.
       size_t random_key_idx = static_cast<size_t>(rand()) % populate_ds_size;
-      auto key = dset_keys[random_key_idx];
+      auto& key = dset_keys[random_key_idx];
       int res =
           client.get(i, 0, key.data(), key.size(), val_ret, &val_ret_length);
       if (res == 0) {
-        if (verify_correctness) {
+        if (FLAGS_blocking) {
           // Check result.
           auto val = dset_vals[random_key_idx];
           if (val.size() != val_ret_length ||
@@ -166,7 +180,10 @@ int main(int argc, char* argv[]) {
   double wrkl_avg_thr = kBillion * (1 / wrkl_ns);  // qps
 
   std::cout << "Workload executed, some statistics: \n";
-  std::cout << "   * average throughput: " << wrkl_avg_thr << " qps\n";
+  std::cout << "   * total requests sent: " << wrkl_size << "\n";
+  std::cout << "   * total requests received: "
+            << (FLAGS_blocking ? wrkl_size : client.dumpRecvStat()) << "\n";
+  std::cout << "   * average sending throughput: " << wrkl_avg_thr << " qps\n";
   std::cout << "   * GET errors: " << get_errors << "\n";
   std::cout << "   * GET data errors: " << get_data_errors << "\n";
   std::cout << "   * SET errors: " << set_errors << "\n";
