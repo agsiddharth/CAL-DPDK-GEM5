@@ -45,6 +45,9 @@ static volatile bool force_quit;
 
 /* MAC updating enabled by default */
 static int mac_updating = 1;
+static int touch = 0;
+static int drop  = 0;
+volatile int flag = 1;
 
 #define RTE_LOGTYPE_L2FWD RTE_LOGTYPE_USER1
 
@@ -188,6 +191,20 @@ l2fwd_simple_forward(struct rte_mbuf *m, unsigned portid)
 
 	if (mac_updating)
 		l2fwd_mac_updating(m, dst_port);
+
+	if (touch)
+	{
+		for (uint j = 0; j < m->pkt_len; j++)
+		{
+			char* pkt_data = rte_pktmbuf_mtod(m, char *);
+			// Do something with data here
+			if (pkt_data[j] == 255)
+				flag = pkt_data[j];
+		}
+	}
+
+	if (drop)
+		return;
 
 	buffer = tx_buffer[dst_port];
 	sent = rte_eth_tx_buffer(dst_port, 0, buffer, m);
@@ -494,6 +511,16 @@ l2fwd_parse_args(int argc, char **argv)
 				return -1;
 			}
 			timer_period = timer_secs;
+			break;
+		
+		case 'touch':
+			printf("Enabled packet touch \n");
+			touch = 1;
+			break;
+
+		case 'drop':
+			printf("Enabled packed drop\n");
+			drop = 1;
 			break;
 
 		/* long options */
