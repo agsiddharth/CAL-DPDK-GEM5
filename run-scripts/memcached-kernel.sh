@@ -87,12 +87,12 @@ if [[ -z "$num_nics" ]]; then
 fi
 
 if [[ -n "$checkpoint" ]]; then
-  RUNDIR=${GIT_ROOT}/rundir/$num_nics"NIC-ckp"
+  RUNDIR=${GIT_ROOT}/rundir/$num_nics"NIC-ckp-"$GUEST_SCRIPT
   setup_dirs
   echo "Taking Checkpoint for NICs=$num_nics" >&2
   GEM5TYPE="fast"
   CPUTYPE="AtomicSimpleCPU"
-  CONFIGARGS="-m 6000000000000"
+  CONFIGARGS="--max-checkpoints 2"
   run_simulation
   exit 0
 else
@@ -102,11 +102,11 @@ else
   fi
 
   PORT=11211    # for memcached
-  PCAP_FILENAME="../memcached.pcap"
+  PCAP_FILENAME="../resources/warmup.pcap"
   ((INCR_INTERVAL = PACKET_RATE / 10))
   RUNDIR=${GIT_ROOT}/rundir/$num_nics"NIC"
   setup_dirs
-  CPUTYPE="AtomicSimpleCPU" # just because DerivO3CPU is too slow sometimes
+  CPUTYPE="DerivO3CPU" # just because DerivO3CPU is too slow sometimes
   GEM5TYPE="opt"
   LOADGENMODE=${LOADGENMODE:-"Static"}
   DEBUG_FLAGS="--debug-flags=LoadgenDebug"
