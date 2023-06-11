@@ -455,9 +455,13 @@ enum {
 	CMD_LINE_OPT_MAC_UPDATING_NUM = 256,
 	CMD_LINE_OPT_NO_MAC_UPDATING_NUM,
 	CMD_LINE_OPT_PORTMAP_NUM,
+	CMD_LINE_OPT_TOUCH_NUM,
+	CMD_LINE_OPT_DROP_NUM
 };
 
 static const struct option lgopts[] = {
+	{"touch", no_argument, 0, CMD_LINE_OPT_TOUCH_NUM},
+	{"drop", no_argument, 0, CMD_LINE_OPT_DROP_NUM},
 	{ CMD_LINE_OPT_MAC_UPDATING, no_argument, 0,
 		CMD_LINE_OPT_MAC_UPDATING_NUM},
 	{ CMD_LINE_OPT_NO_MAC_UPDATING, no_argument, 0,
@@ -513,12 +517,12 @@ l2fwd_parse_args(int argc, char **argv)
 			timer_period = timer_secs;
 			break;
 		
-		case 'touch':
+		case CMD_LINE_OPT_TOUCH_NUM:
 			printf("Enabled packet touch \n");
 			touch = 1;
 			break;
 
-		case 'drop':
+		case CMD_LINE_OPT_DROP_NUM:
 			printf("Enabled packed drop\n");
 			drop = 1;
 			break;
