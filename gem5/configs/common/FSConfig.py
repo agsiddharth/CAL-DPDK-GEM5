@@ -43,7 +43,8 @@ from m5.objects import *
 from m5.util import *
 from common.Benchmarks import *
 from common import ObjectList
-#from m5.objects.load_generator import LoadGenerator
+from enum import Enum
+# from m5.objects.load_generator_pcap import LoadGeneratorPcap
 
 # Populate to reflect supported os types per target ISA
 os_types = { 'mips'  : [ 'linux' ],
@@ -176,7 +177,8 @@ def makeSparcSystem(mem_mode, mdesc=None, cmdline=None):
 def makeArmSystem(mem_mode, machine_type, num_cpus=1, mdesc=None,
                   dtb_filename=None, bare_metal=False, cmdline=None,
                   external_memory="", ruby=False, security=False,
-                  vio_9p=None, bootloader=None, packet_rate=1, packet_size=64, num_nics=1, num_loadgens=0, loadgen_start=1, loadgen_stop=m5.MaxTick, loadgen_mode="Static"):
+                  vio_9p=None, bootloader=None, num_nics=1, num_loadgens=0,
+                  load_generator_type="Simple", **loadgen_kwargs):
     assert machine_type
 
     pci_devices = []
@@ -192,7 +194,22 @@ def makeArmSystem(mem_mode, machine_type, num_cpus=1, mdesc=None,
         nics.append(IGbE_e1000(adq_idx=i))
 
     for i in range(num_loadgens):
-        loadgens.append(LoadGenerator(packet_rate = packet_rate, packet_size = packet_size, start_tick=loadgen_start, stop_tick=loadgen_stop, mode=loadgen_mode))
+        if load_generator_type == "Simple":
+            loadgens.append(LoadGenerator(packet_rate = loadgen_kwargs['packet_rate'],
+                                          packet_size = loadgen_kwargs['packet_size'],
+                                          start_tick = loadgen_kwargs['loadgen_start'],
+                                          stop_tick = loadgen_kwargs['loadgen_stop'],
+                                          mode = loadgen_kwargs['loadgen_mode']))
+        elif load_generator_type == "Pcap":
+            loadgens.append(LoadGeneratorPcap(pcap_filename = loadgen_kwargs['loadgen_pcap_filename'],
+                                              start_tick = loadgen_kwargs['loadgen_start'],
+                                              stop_tick = loadgen_kwargs['loadgen_stop'],
+                                              replay_mode = loadgen_kwargs['loadgen_replay_mode'],
+                                              packet_rate = loadgen_kwargs['loadgen_packet_rate'],
+                                              increment_interval = loadgen_kwargs['loadgen_increment_interval'],
+                                              port_filter = loadgen_kwargs['loadgen_port_filter']))
+        else:
+            fatal("Unknown type of the load generator")
         links.append(EtherLink(speed = '1000Gbps'))
         links[i].int0 = nics[i].interface
         links[i].int1 = loadgens[i].interface

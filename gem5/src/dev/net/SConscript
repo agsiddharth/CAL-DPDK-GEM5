@@ -80,10 +80,12 @@ Source('i8254xGBe.cc')
 Source('ns_gige.cc')
 Source('sinic.cc')
 Source('load_generator.cc')
+Source('load_generator_pcap.cc')
 
 
 # LOADGEN
 SimObject('load_generator.py')
+SimObject('load_generator_pcap.py')
 
 
 CompoundFlag('EthernetAll', [ 'Ethernet', 'EthernetPIO', 'EthernetDMA',

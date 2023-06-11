@@ -87,27 +87,58 @@ def build_test_system(np):
         test_sys = makeLinuxX86System(test_mem_mode, np, bm[0], args.ruby,
                                       cmdline=cmdline)
     elif buildEnv['TARGET_ISA'] == "arm":
-        test_sys = makeArmSystem(
-            test_mem_mode,
-            args.machine_type,
-            np,
-            bm[0],
-            args.dtb_filename,
-            bare_metal=args.bare_metal,
-            cmdline=cmdline,
-            external_memory=args.external_memory_system,
-            ruby=args.ruby,
-            security=args.enable_security_extensions,
-            vio_9p=args.vio_9p,
-            bootloader=args.bootloader,
-            packet_rate=args.packet_rate,
-            packet_size=args.packet_size,
-            num_nics=args.num_nics,
-            num_loadgens=args.num_loadgens,
-            loadgen_start=args.loadgen_start,
-            loadgen_stop=args.loadgen_stop,
-            loadgen_mode=args.loadgen_mode,
-        )
+        if args.loadgen_type == "Simple":
+            test_sys = makeArmSystem(
+                test_mem_mode,
+                args.machine_type,
+                np,
+                bm[0],
+                args.dtb_filename,
+                bare_metal=args.bare_metal,
+                cmdline=cmdline,
+                external_memory=args.external_memory_system,
+                ruby=args.ruby,
+                security=args.enable_security_extensions,
+                vio_9p=args.vio_9p,
+                bootloader=args.bootloader,
+                num_nics=args.num_nics,
+                # Loadgens.
+                num_loadgens=args.num_loadgens,
+                load_generator_type="Simple",
+                loadgen_start=args.loadgen_start,
+                loadgen_stop=args.loadgen_stop,
+                packet_rate=args.packet_rate,
+                packet_size=args.packet_size,
+                loadgen_mode=args.loadgen_mode
+            )
+        elif args.loadgen_type == "Pcap":
+            test_sys = makeArmSystem(
+                test_mem_mode,
+                args.machine_type,
+                np,
+                bm[0],
+                args.dtb_filename,
+                bare_metal=args.bare_metal,
+                cmdline=cmdline,
+                external_memory=args.external_memory_system,
+                ruby=args.ruby,
+                security=args.enable_security_extensions,
+                vio_9p=args.vio_9p,
+                bootloader=args.bootloader,
+                num_nics=args.num_nics,
+                # Loadgens.
+                num_loadgens=args.num_loadgens,
+                load_generator_type="Pcap",
+                loadgen_pcap_filename=args.loadgen_pcap_filename,
+                loadgen_start=args.loadgen_start,
+                loadgen_stop=args.loadgen_stop,
+                loadgen_replay_mode=args.loadgen_replymode,
+                loadgen_packet_rate=args.packet_rate,
+                loadgen_increment_interval=args.loadgen_increment_interval,
+                loadgen_port_filter=args.loadgen_port_filter
+            )
+        else:
+            fatal("Unknown type of the load generator")
         if args.enable_context_switch_stats_dump:
             test_sys.enable_context_switch_stats_dump = True
     else:
