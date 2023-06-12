@@ -91,8 +91,12 @@ if [[ -n "$checkpoint" ]]; then
   setup_dirs
   echo "Taking Checkpoint for NICs=$num_nics" >&2
   GEM5TYPE="fast"
+  PORT=11211
   CPUTYPE="AtomicSimpleCPU"
-  CONFIGARGS="--max-checkpoints 2"
+  PACKET_RATE=100000
+  LOADGENREPLYMODE=ConstThroughput
+  PCAP_FILENAME="../resources/warmup.pcap"
+  CONFIGARGS="--checkpoint-at-end --loadgen-start=1619488205000 -m 2619488205000 --loadgen-type=Pcap --loadgen_pcap_filename=$PCAP_FILENAME --loadgen-start=2615488205000 -m=4615488205000 --packet-rate=$PACKET_RATE --loadgen-replymode=$LOADGENREPLYMODE --loadgen-port-filter=$PORT"
   run_simulation
   exit 0
 else
@@ -102,15 +106,15 @@ else
   fi
 
   PORT=11211    # for memcached
-  PCAP_FILENAME="../resources/warmup.pcap"
+  PCAP_FILENAME="../resources/reqs.pcap"
   ((INCR_INTERVAL = PACKET_RATE / 10))
   RUNDIR=${GIT_ROOT}/rundir/$num_nics"NIC"
   setup_dirs
   CPUTYPE="DerivO3CPU" # just because DerivO3CPU is too slow sometimes
   GEM5TYPE="opt"
-  LOADGENMODE=${LOADGENMODE:-"Static"}
+  LOADGENREPLYMODE=ConstThroughput
   DEBUG_FLAGS="--debug-flags=LoadgenDebug"
-  CONFIGARGS="$CACHE_CONFIG -r 1 --loadgen-type=Pcap --loadgen_pcap_filename=$PCAP_FILENAME --loadgen-start=4050000000000 -m=4500000000000 --packet-rate=$PACKET_RATE --loadgen-replymode=$LOADGENREPLYMODE --loadgen-port-filter=$PORT --loadgen-increment-interva=$INCR_INTERVAL"
+  CONFIGARGS="$CACHE_CONFIG -r 2 --loadgen-type=Pcap --loadgen_pcap_filename=$PCAP_FILENAME --loadgen-start=2615488205000 -m=4615488205000 --packet-rate=$PACKET_RATE --loadgen-replymode=$LOADGENREPLYMODE --loadgen-port-filter=$PORT --loadgen-increment-interva=$INCR_INTERVAL"
   run_simulation
   exit
 fi
