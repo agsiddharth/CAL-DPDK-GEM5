@@ -175,6 +175,7 @@ struct fwd_engine * fwd_engines[] = {
 	&mac_swap_engine,
 	&flow_gen_engine,
 	&rx_only_engine,
+	&touch_fwd_engine,
 	&tx_only_engine,
 	&csum_fwd_engine,
 	&icmp_echo_engine,
