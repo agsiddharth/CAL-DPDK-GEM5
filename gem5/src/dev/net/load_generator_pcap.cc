@@ -7,7 +7,6 @@
 #include <netinet/udp.h>
 
 #include <base/stats/types.hh>
-
 #include "base/trace.hh"
 #include "debug/LoadgenDebug.hh"
 #include "debug/LoadgenLatency.hh"
@@ -53,6 +52,8 @@ LoadGeneratorPcap::LoadGeneratorPcap(const LoadGeneratorPcapParams &p)
       loadGeneratorPcapStats(this) {
   LoadGeneratorPcap::interface = new LoadGenPcapInt("interface", this);
 
+  // Setup the packet send times.
+  packetSendTimes = std::queue<Tick>();
   // Setup pcap trace file.
   char errbuff[PCAP_ERRBUF_SIZE];
   pcap_h = pcap_open_offline(pcapFilename.c_str(), errbuff);
@@ -139,6 +140,7 @@ void LoadGeneratorPcap::sendPacket() {
     if (ret < 0) {
       // Perhaps EOF.
       DPRINTF(LoadgenDebug, "End of pcap trace is reached!\n");
+      // exitSimLoop("END OF PCAP TRACE" "SIM TERMINATED BY LOADGEN"); 
       schedule(checkLossEvent, curTick() + kLossCheckWaitCycles);
       return;
       // TODO: can start over...
@@ -232,6 +234,8 @@ void LoadGeneratorPcap::sendPacket() {
     }
   }
 
+  Tick currentTick = curTick();
+  packetSendTimes.push(currentTick);
   // Increment stats.
   loadGeneratorPcapStats.sentPackets++;
   lastTxCount++;
@@ -270,9 +274,10 @@ bool LoadGeneratorPcap::processRxPkt(EthPacketPtr pkt) {
   loadGeneratorPcapStats.recvPackets++;
   lastRxCount++;
 
-  uint64_t sendTick;
-  memcpy(&sendTick, &(pkt->data[8]), sizeof(uint64_t));
-
+  // assuming FIFO ordering of responses which is not necessierly true
+  uint64_t sendTick = packetSendTimes.front();
+  if (packetSendTimes.size() > 0)
+    packetSendTimes.pop();
   float delta = float((gem5::curTick() - sendTick)) / 10.0e3;
   loadGeneratorPcapStats.latency.sample(delta);
   DPRINTF(LoadgenLatency, "Latency %f \n", delta);

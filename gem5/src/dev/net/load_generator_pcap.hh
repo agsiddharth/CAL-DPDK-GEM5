@@ -2,6 +2,7 @@
 #define __LOAD_GENERATOR_HH__
 
 #include <pcap/pcap.h>
+#include <queue>
 
 #include "base/statistics.hh"
 #include "dev/net/etherint.hh"
@@ -37,6 +38,7 @@ class LoadGeneratorPcap : public SimObject {
   ReplayMode replayMode;
   uint32_t packetRate;
   Tick incrementInterval;
+  std::queue<Tick> packetSendTimes;
 
   // Stats for checking the loss.
   uint64_t lastRxCount;

@@ -1,6 +1,6 @@
 #!/bin/bash
 
-CACHE_CONFIG="--caches --l2cache --l1i_size=32kB --l1d_size=32kB --l1d_assoc=8 --l2_size=1MB --l2_assoc=16"
+CACHE_CONFIG="--caches --l2cache --l1i_size=32kB --l1d_size=32kB --l1d_assoc=8 --l2_assoc=16"
 
 function usage {
   echo "Usage: $0 --num-nics <num_nics> [--script <script>] [--loadgen-find-bw] [--take-checkpoint] [-h|--help]"
@@ -18,7 +18,7 @@ function setup_dirs {
 }
 
 function run_simulation {
-  "$GEM5_DIR/build/ARM/gem5.$GEM5TYPE" $DEBUG_FLAGS --outdir="$RUNDIR" \
+  "$GEM5_DIR/build/ARM/gem5.$GEM5TYPE" -r -e $DEBUG_FLAGS --outdir="$RUNDIR" \
   "$GEM5_DIR"/configs/example/fs.py --cpu-type=$CPUTYPE \
   --kernel="$RESOURCES/vmlinux" --disk="$RESOURCES/rootfs.ext2" --bootloader="$RESOURCES/boot.arm64" --root=/dev/sda \
   --num-cpus=2 --mem-size=8192MB --script="$GUEST_SCRIPT_DIR/$GUEST_SCRIPT" \
@@ -36,7 +36,7 @@ RESOURCES=${GIT_ROOT}/resources
 GUEST_SCRIPT_DIR=${GIT_ROOT}/guest-scripts
 
 # parse command line arguments
-TEMP=$(getopt -o 'h' --long take-checkpoint,num-nics:,script:,packet-rate,loadgen-find-bw,help -n 'dpdk-loadgen' -- "$@")
+TEMP=$(getopt -o 'h' --long l2-size:,freq:,take-checkpoint,num-nics:,script:,packet-rate:,loadgen-find-bw,help -n 'dpdk-loadgen' -- "$@")
 
 # check for parsing errors
 if [ $? != 0 ]; then
@@ -46,10 +46,20 @@ fi
 
 eval set -- "$TEMP"
 
+eval set -- "$TEMP"
+
 while true; do
   case "$1" in
   --num-nics)
     num_nics="$2"
+    shift 2
+    ;;
+  --l2-size)
+    L2_SIZE="$2"
+    shift 2
+    ;;
+  --freq)
+    FREQ="$2"
     shift 2
     ;;
   --take-checkpoint)
@@ -61,11 +71,11 @@ while true; do
     shift 2
     ;;
   --packet-rate)
-    PACKET_RATE="$3"
+    PACKET_RATE="$2"
     shift 2
     ;;
   --loadgen-find-bw)
-    LOADGENREPLYMODE="ReplayAndAdjustThroughput"
+    LOADGENMODE="Increment"
     shift 1
     ;;
   -h | --help)
@@ -78,7 +88,6 @@ while true; do
   *) break ;;
   esac
 done
-
 CKPT_DIR=${GIT_ROOT}/ckpts/$num_nics"NIC"-$GUEST_SCRIPT
 
 if [[ -z "$num_nics" ]]; then
@@ -91,12 +100,13 @@ if [[ -n "$checkpoint" ]]; then
   setup_dirs
   echo "Taking Checkpoint for NICs=$num_nics" >&2
   GEM5TYPE="fast"
+  DEBUG_FLAGS=""
   PORT=11211
   CPUTYPE="AtomicSimpleCPU"
-  PACKET_RATE=100000
+  PACKET_RATE=1000
   LOADGENREPLYMODE=ConstThroughput
-  PCAP_FILENAME="../resources/warmup.pcap"
-  CONFIGARGS="--checkpoint-at-end --loadgen-start=1619488205000 -m 2619488205000 --loadgen-type=Pcap --loadgen_pcap_filename=$PCAP_FILENAME --loadgen-start=2615488205000 -m=4615488205000 --packet-rate=$PACKET_RATE --loadgen-replymode=$LOADGENREPLYMODE --loadgen-port-filter=$PORT"
+  PCAP_FILENAME="../resources/setup.pcap"
+  CONFIGARGS="-r 1 --checkpoint-at-end --loadgen-start=1619488205000 -m 20619488205000 --loadgen-type=Pcap --loadgen_pcap_filename=$PCAP_FILENAME --packet-rate=$PACKET_RATE --loadgen-replymode=$LOADGENREPLYMODE --loadgen-port-filter=$PORT"
   run_simulation
   exit 0
 else
@@ -108,13 +118,13 @@ else
   PORT=11211    # for memcached
   PCAP_FILENAME="../resources/reqs.pcap"
   ((INCR_INTERVAL = PACKET_RATE / 10))
-  RUNDIR=${GIT_ROOT}/rundir/$num_nics"NIC"
+  RUNDIR=${GIT_ROOT}/rundir/$L2_SIZE"l2-"$FREQ"freq"-$PACKET_RATE"pkt"
   setup_dirs
   CPUTYPE="DerivO3CPU" # just because DerivO3CPU is too slow sometimes
   GEM5TYPE="opt"
   LOADGENREPLYMODE=ConstThroughput
   DEBUG_FLAGS="--debug-flags=LoadgenDebug"
-  CONFIGARGS="$CACHE_CONFIG -r 2 --loadgen-type=Pcap --loadgen_pcap_filename=$PCAP_FILENAME --loadgen-start=2615488205000 -m=4615488205000 --packet-rate=$PACKET_RATE --loadgen-replymode=$LOADGENREPLYMODE --loadgen-port-filter=$PORT --loadgen-increment-interva=$INCR_INTERVAL"
+  CONFIGARGS="--l2_size=$L2_SIZE --cpu-clock=$FREQ $CACHE_CONFIG -r 2 --loadgen-type=Pcap --loadgen_pcap_filename=$PCAP_FILENAME --loadgen-start=20619488205000 -m=23619488205000 --packet-rate=$PACKET_RATE --loadgen-replymode=$LOADGENREPLYMODE --loadgen-port-filter=$PORT --loadgen-increment-interva=$INCR_INTERVAL"
   run_simulation
   exit
 fi
